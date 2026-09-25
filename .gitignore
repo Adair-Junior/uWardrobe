@@ -22,3 +22,5 @@ web-build/
 # OS
 .DS_Store
 Thumbs.db
+
+uwardrobe.db
