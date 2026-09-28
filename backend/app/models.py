@@ -20,3 +20,7 @@ class UserResponse(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+class Outfit(BaseModel):
+    name: str
+    item_ids: list[str] = []

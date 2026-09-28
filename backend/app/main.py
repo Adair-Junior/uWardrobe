@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session 
-from backend.app.models import ClothingItem, UserCreate, UserResponse, UserLogin
+from backend.app.models import ClothingItem, UserCreate, UserResponse, UserLogin, Outfit 
 from backend.app.database import engine, Base, get_db
 from backend.app import db_models 
-from backend.app.db_models import ClothingItemDB
+from backend.app.db_models import ClothingItemDB, OutfitDB, OutfitItemDB
 from backend.app.db_models import UserDB
 from backend.app.security import (
     hash_password, 
@@ -201,6 +201,10 @@ def delete_clothing_item(
             detail="Clothing item not found"
         )
 
+    db.query(OutfitItemDB).filter(
+        OutfitItemDB.clothing_item_id == db_item.id
+    ).delete()
+
     db.delete(db_item)
     db.commit()
 
@@ -240,3 +244,239 @@ def update_clothing_item(
     db.refresh(db_item)
 
     return db_item
+
+@app.post("/outfits", status_code=201)
+def create_outfit(
+    outfit: Outfit,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+
+    if len(outfit.item_ids) != len(set(outfit.item_ids)):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate clothing items are not allowed",
+        )
+    
+    db_outfit = OutfitDB(
+        id=str(uuid4()),
+        name=outfit.name,
+        owner_id=current_user.id,
+    )
+
+    db.add(db_outfit)
+    db.flush()
+
+    saved_item_ids = []
+
+    for item_id in outfit.item_ids:
+        clothing_item = (
+            db.query(ClothingItemDB)
+            .filter(
+                ClothingItemDB.id == item_id,
+                ClothingItemDB.user_id == current_user.id,
+            )
+            .first()
+        )
+
+        if clothing_item is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Clothing item not found",
+            )
+
+        outfit_item = OutfitItemDB(
+            id=str(uuid4()),
+            outfit_id=db_outfit.id,
+            clothing_item_id=clothing_item.id,
+        )
+
+        db.add(outfit_item)
+        saved_item_ids.append(clothing_item.id)
+
+    db.commit()
+    db.refresh(db_outfit)
+
+    return {
+        "id": db_outfit.id,
+        "name": db_outfit.name,
+        "item_ids": saved_item_ids,
+    }
+
+@app.get("/outfits")
+def get_outfits(
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    outfits = (
+        db.query(OutfitDB)
+        .filter(OutfitDB.owner_id == current_user.id)
+        .all()
+    )
+
+    result = []
+
+    for outfit in outfits:
+        outfit_items = (
+            db.query(OutfitItemDB)
+            .filter(OutfitItemDB.outfit_id == outfit.id)
+            .all()
+        )
+
+        result.append(
+            {
+                "id": outfit.id,
+                "name": outfit.name,
+                "item_ids": [
+                    outfit_item.clothing_item_id
+                    for outfit_item in outfit_items
+                ],
+            }
+        )
+
+    return result
+
+@app.get("/outfits/{outfit_id}")
+def get_outfit(
+    outfit_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    outfit = (
+        db.query(OutfitDB)
+        .filter(
+            OutfitDB.id == outfit_id,
+            OutfitDB.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if outfit is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Outfit not found",
+        )
+
+    outfit_items = (
+        db.query(OutfitItemDB)
+        .filter(OutfitItemDB.outfit_id == outfit.id)
+        .all()
+    )
+
+    return {
+        "id": outfit.id,
+        "name": outfit.name,
+        "item_ids": [
+            outfit_item.clothing_item_id
+            for outfit_item in outfit_items
+        ],
+    }
+
+@app.delete("/outfits/{outfit_id}", status_code=204)
+def delete_outfit(
+    outfit_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    outfit = (
+        db.query(OutfitDB)
+        .filter(
+            OutfitDB.id == outfit_id,
+            OutfitDB.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if outfit is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Outfit not found",
+        )
+
+    db.query(OutfitItemDB).filter(
+        OutfitItemDB.outfit_id == outfit.id
+    ). delete()
+    
+    db.delete(outfit)
+    db.commit()
+
+    return None
+
+@app.put("/outfits/{outfit_id}")
+def update_outfit(
+    outfit_id: str,
+    updated_outfit: Outfit,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    if len(updated_outfit.item_ids) != len(set(updated_outfit.item_ids)):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate clothing items are not allowed",
+        )
+    
+    outfit = (
+        db.query(OutfitDB)
+        .filter(
+            OutfitDB.id == outfit_id,
+            OutfitDB.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if outfit is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Outfit not found",
+        )
+
+    # Validate all wardrobe items first
+    clothing_items = []
+
+    for item_id in updated_outfit.item_ids:
+        clothing_item = (
+            db.query(ClothingItemDB)
+            .filter(
+                ClothingItemDB.id == item_id,
+                ClothingItemDB.user_id == current_user.id,
+            )
+            .first()
+        )
+
+        if clothing_item is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Clothing item not found",
+            )
+
+        clothing_items.append(clothing_item)
+
+    # Update outfit name
+    outfit.name = updated_outfit.name
+
+    # Remove old item relationships
+    db.query(OutfitItemDB).filter(
+        OutfitItemDB.outfit_id == outfit.id
+    ).delete()
+
+    # Create the new relationships
+    for clothing_item in clothing_items:
+        outfit_item = OutfitItemDB(
+            id=str(uuid4()),
+            outfit_id=outfit.id,
+            clothing_item_id=clothing_item.id,
+        )
+
+        db.add(outfit_item)
+
+    db.commit()
+    db.refresh(outfit)
+
+    return {
+        "id": outfit.id,
+        "name": outfit.name,
+        "item_ids": [
+            clothing_item.id
+            for clothing_item in clothing_items
+        ],
+    }

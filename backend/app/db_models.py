@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, ForeignKey
 from backend.app.database import Base 
 
 class ClothingItemDB(Base):
@@ -18,3 +18,27 @@ class UserDB(Base):
     id = Column(String, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+
+class OutfitDB(Base):
+    __tablename__ = "outfits"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+
+class OutfitItemDB(Base):
+    __tablename__ = "outfit_items"
+
+    id = Column(String, primary_key=True, index=True)
+    outfit_id = Column(
+        String,
+        ForeignKey("outfits.id"),
+        nullable=False,
+        index=True,
+    )
+    clothing_item_id = Column(
+        String,
+        ForeignKey("clothing_items.id"),
+        nullable=False,
+        index=True,
+    )
