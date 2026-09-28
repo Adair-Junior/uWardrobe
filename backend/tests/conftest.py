@@ -41,7 +41,46 @@ def reset_database():
     Base.metadata.create_all(bind=engine)
     yield
 
+@pytest.fixture()
+def db_session():
+    db = TestingSessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
 
 @pytest.fixture
 def client():
     return TestClient(app)
+
+@pytest.fixture()
+def auth_headers(client):
+    email = "wardrobeuser@example.com"
+    password = "SecurePassword123!"
+
+    register_response = client.post(
+        "/user/register",
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/user/login",
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    access_token = login_response.json()["access_token"]
+
+    return {
+        "Authorization": f"Bearer {access_token}"
+    }
