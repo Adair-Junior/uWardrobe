@@ -1,6 +1,13 @@
 import pytest
 from pydantic import ValidationError
 
+from backend.app.weather import (
+    build_weather_params,
+    weather_code_to_condition,
+    parse_weather_response,
+    get_current_weather,
+)
+
 from backend.app.models import WeatherContext
 
 
@@ -109,3 +116,103 @@ def test_weather_context_rejects_invalid_longitude():
             wind_speed_kmh=12.0,
             weather_condition="clear",
         )
+
+def test_build_weather_params():
+    params = build_weather_params(
+        latitude=-23.5505,
+        longitude=-46.6333,
+    )
+
+    assert params["latitude"] == -23.5505
+    assert params["longitude"] == -46.6333
+
+    assert params["current"] == [
+        "temperature_2m",
+        "apparent_temperature",
+        "precipitation",
+        "relative_humidity_2m",
+        "wind_speed_10m",
+        "weather_code",
+    ]
+
+def test_weather_code_to_condition():
+    assert weather_code_to_condition(0) == "clear"
+    assert weather_code_to_condition(2) == "cloudy"
+    assert weather_code_to_condition(45) == "fog"
+    assert weather_code_to_condition(53) == "drizzle"
+    assert weather_code_to_condition(61) == "rain"
+    assert weather_code_to_condition(71) == "snow"
+    assert weather_code_to_condition(80) == "rain_showers"
+    assert weather_code_to_condition(95) == "thunderstorm"
+    assert weather_code_to_condition(999) == "unknown"
+
+def test_parse_weather_response():
+    data = {
+        "current": {
+            "temperature_2m": 22.5,
+            "apparent_temperature": 21.8,
+            "precipitation": 1.2,
+            "relative_humidity_2m": 78.0,
+            "wind_speed_10m": 14.5,
+            "weather_code": 61,
+        }
+    }
+
+    weather = parse_weather_response(
+        data=data,
+        latitude=-23.5505,
+        longitude=-46.6333,
+    )
+
+    assert isinstance(weather, WeatherContext)
+    assert weather.latitude == -23.5505
+    assert weather.longitude == -46.6333
+    assert weather.temperature_c == 22.5
+    assert weather.feels_like_c == 21.8
+    assert weather.precipitation_mm == 1.2
+    assert weather.humidity_percent == 78.0
+    assert weather.wind_speed_kmh == 14.5
+    assert weather.weather_condition == "rain"
+
+def test_get_current_weather(monkeypatch):
+    class MockResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "current": {
+                    "temperature_2m": 22.5,
+                    "apparent_temperature": 21.8,
+                    "precipitation": 1.2,
+                    "relative_humidity_2m": 78.0,
+                    "wind_speed_10m": 14.5,
+                    "weather_code": 61,
+                }
+            }
+
+    def mock_get(url, params, timeout):
+        assert url == "https://api.open-meteo.com/v1/forecast"
+        assert params["latitude"] == -23.5505
+        assert params["longitude"] == -46.6333
+        assert timeout == 10.0
+
+        return MockResponse()
+
+    monkeypatch.setattr(
+        "backend.app.weather.httpx.get",
+        mock_get,
+    )
+
+    weather = get_current_weather(
+        latitude=-23.5505,
+        longitude=-46.6333,
+    )
+
+    assert isinstance(weather, WeatherContext)
+    assert weather.temperature_c == 22.5
+    assert weather.feels_like_c == 21.8
+    assert weather.precipitation_mm == 1.2
+    assert weather.humidity_percent == 78.0
+    assert weather.wind_speed_kmh == 14.5
+    assert weather.weather_condition == "rain"
