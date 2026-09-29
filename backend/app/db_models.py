@@ -57,3 +57,7 @@ class StyleProfileDB(Base):
     preferred_styles = Column(String, nullable=True)
     preferred_colors = Column(String, nullable=True)
     avoided_colors = Column(String, nullable=True)
+    top_size = Column(String, nullable=True)
+    bottom_size = Column(String, nullable=True)
+    shoe_size = Column(String, nullable=True)
+    preferred_fit = Column(String, nullable=True)

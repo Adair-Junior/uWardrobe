@@ -506,6 +506,10 @@ def create_style_profile(
         preferred_styles=",".join(profile.preferred_styles),
         preferred_colors=",".join(profile.preferred_colors),
         avoided_colors=",".join(profile.avoided_colors),
+        top_size=profile.top_size,
+        bottom_size=profile.bottom_size,
+        shoe_size=profile.shoe_size,
+        preferred_fit=profile.preferred_fit,
     )
 
     db.add(db_profile)
@@ -516,6 +520,10 @@ def create_style_profile(
         "preferred_styles": profile.preferred_styles,
         "preferred_colors": profile.preferred_colors,
         "avoided_colors": profile.avoided_colors,
+        "top_size": profile.top_size,
+        "bottom_size": profile.bottom_size,
+        "shoe_size": profile.shoe_size,
+        "preferred_fit": profile.preferred_fit,
     }
 
 @app.get("/profile/style")
@@ -551,6 +559,10 @@ def get_style_profile(
             if db_profile.avoided_colors
             else []
         ),
+        "top_size": db_profile.top_size,
+        "bottom_size": db_profile.bottom_size,
+        "shoe_size": db_profile.shoe_size,
+        "preferred_fit": db_profile.preferred_fit,
     }
 
 @app.put("/profile/style")
@@ -574,6 +586,10 @@ def update_style_profile(
     db_profile.preferred_styles = ",".join(profile.preferred_styles)
     db_profile.preferred_colors = ",".join(profile.preferred_colors)
     db_profile.avoided_colors = ",".join(profile.avoided_colors)
+    db_profile.top_size = profile.top_size
+    db_profile.bottom_size = profile.bottom_size
+    db_profile.shoe_size = profile.shoe_size
+    db_profile.preferred_fit = profile.preferred_fit
 
     db.commit()
     db.refresh(db_profile)
@@ -582,6 +598,10 @@ def update_style_profile(
         "preferred_styles": profile.preferred_styles,
         "preferred_colors": profile.preferred_colors,
         "avoided_colors": profile.avoided_colors,
+        "top_size": profile.top_size,
+        "bottom_size": profile.bottom_size,
+        "shoe_size": profile.shoe_size,
+        "preferred_fit": profile.preferred_fit,
     }
 
 @app.delete("/profile/style", status_code=204)

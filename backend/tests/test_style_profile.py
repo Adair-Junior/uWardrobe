@@ -197,3 +197,133 @@ def test_delete_style_profile_not_found(client, auth_headers):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Style profile not found"
+
+def test_create_style_profile_with_size_and_fit(client, auth_headers):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": ["orange"],
+            "top_size": "M",
+            "bottom_size": "32",
+            "shoe_size": "EU 43",
+            "preferred_fit": "oversized",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["top_size"] == "M"
+    assert data["bottom_size"] == "32"
+    assert data["shoe_size"] == "EU 43"
+    assert data["preferred_fit"] == "oversized"
+
+def test_get_style_profile_with_size_and_fit(client, auth_headers):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "top_size": "L",
+            "bottom_size": "34",
+            "shoe_size": "EU 44",
+            "preferred_fit": "regular",
+        },
+    )
+
+    response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["top_size"] == "L"
+    assert data["bottom_size"] == "34"
+    assert data["shoe_size"] == "EU 44"
+    assert data["preferred_fit"] == "regular"
+
+def test_update_style_profile_size_and_fit(client, auth_headers):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "top_size": "M",
+            "bottom_size": "32",
+            "shoe_size": "EU 43",
+            "preferred_fit": "regular",
+        },
+    )
+
+    response = client.put(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "top_size": "L",
+            "bottom_size": "34",
+            "shoe_size": "EU 44",
+            "preferred_fit": "oversized",
+        },
+    )
+
+    assert response.status_code == 200
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    data = get_response.json()
+
+    assert data["top_size"] == "L"
+    assert data["bottom_size"] == "34"
+    assert data["shoe_size"] == "EU 44"
+    assert data["preferred_fit"] == "oversized"
+
+def test_style_profile_size_and_fit_are_optional(client, auth_headers):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["top_size"] is None
+    assert data["bottom_size"] is None
+    assert data["shoe_size"] is None
+    assert data["preferred_fit"] is None
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+
+    saved_data = get_response.json()
+
+    assert saved_data["top_size"] is None
+    assert saved_data["bottom_size"] is None
+    assert saved_data["shoe_size"] is None
+    assert saved_data["preferred_fit"] is None

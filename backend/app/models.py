@@ -29,3 +29,8 @@ class StyleProfile(BaseModel):
     preferred_styles: list[str] = []
     preferred_colors: list[str] = []
     avoided_colors: list[str] = []
+
+    top_size: str | None = None
+    bottom_size: str | None = None
+    shoe_size: str | None = None
+    preferred_fit: str | None = None
