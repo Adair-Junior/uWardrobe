@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -62,3 +62,17 @@ class StyleProfile(BaseModel):
             if value.strip()
         ]
         return list(dict.fromkeys(cleaned_values))
+
+    @model_validator(mode="after")
+    def validate_color_preferences(self):
+        preferred = set(self.preferred_colors)
+        avoided = set(self.avoided_colors)
+
+        conflicting_colors = preferred & avoided
+
+        if conflicting_colors:
+            raise ValueError(
+                "A color cannot be both preferred and avoided"
+            )
+
+        return self

@@ -740,3 +740,106 @@ def test_remove_empty_preference_values(
     ]
     assert data["preferred_colors"] == ["black"]
     assert data["preferred_occasions"] == ["casual"]
+
+def test_reject_color_in_preferred_and_avoided_lists(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black", "blue"],
+            "avoided_colors": ["black", "orange"],
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_reject_color_conflict_after_normalization(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": [
+                " black ",
+                "blue",
+                "black",
+            ],
+            "avoided_colors": [
+                "black ",
+                "orange",
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_reject_color_conflict_on_update(
+    client,
+    auth_headers,
+):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": ["orange"],
+        },
+    )
+
+    response = client.put(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black", "blue"],
+            "avoided_colors": ["black", "orange"],
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_failed_color_conflict_update_preserves_profile(
+    client,
+    auth_headers,
+):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": ["orange"],
+        },
+    )
+
+    response = client.put(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black", "blue"],
+            "avoided_colors": ["black", "orange"],
+        },
+    )
+
+    assert response.status_code == 422
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+
+    data = get_response.json()
+
+    assert data["preferred_colors"] == ["black"]
+    assert data["avoided_colors"] == ["orange"]
