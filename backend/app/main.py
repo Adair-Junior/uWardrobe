@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session 
-from backend.app.models import ClothingItem, UserCreate, UserResponse, UserLogin, Outfit 
+from backend.app.models import ClothingItem, UserCreate, UserResponse, UserLogin, Outfit, StyleProfile 
 from backend.app.database import engine, Base, get_db
 from backend.app import db_models 
-from backend.app.db_models import ClothingItemDB, OutfitDB, OutfitItemDB
+from backend.app.db_models import ClothingItemDB, OutfitDB, OutfitItemDB, StyleProfileDB
 from backend.app.db_models import UserDB
 from backend.app.security import (
     hash_password, 
@@ -480,3 +480,128 @@ def update_outfit(
             for clothing_item in clothing_items
         ],
     }
+
+@app.post("/profile/style", status_code=201)
+def create_style_profile(
+    profile: StyleProfile,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    existing_profile = (
+        db.query(StyleProfileDB)
+        .filter(StyleProfileDB.user_id == current_user.id)
+        .first()
+    )
+
+    if existing_profile:
+        raise HTTPException(
+            status_code=400,
+            detail="Style profile already exists",
+        )
+
+    db_profile = StyleProfileDB(
+        id=str(uuid4()),
+        user_id=current_user.id,
+        preferred_styles=",".join(profile.preferred_styles),
+        preferred_colors=",".join(profile.preferred_colors),
+        avoided_colors=",".join(profile.avoided_colors),
+    )
+
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+
+    return {
+        "preferred_styles": profile.preferred_styles,
+        "preferred_colors": profile.preferred_colors,
+        "avoided_colors": profile.avoided_colors,
+    }
+
+@app.get("/profile/style")
+def get_style_profile(
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_profile = (
+        db.query(StyleProfileDB)
+        .filter(StyleProfileDB.user_id == current_user.id)
+        .first()
+    )
+
+    if not db_profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Style profile not found",
+        )
+
+    return {
+        "preferred_styles": (
+            db_profile.preferred_styles.split(",")
+            if db_profile.preferred_styles
+            else []
+        ),
+        "preferred_colors": (
+            db_profile.preferred_colors.split(",")
+            if db_profile.preferred_colors
+            else []
+        ),
+        "avoided_colors": (
+            db_profile.avoided_colors.split(",")
+            if db_profile.avoided_colors
+            else []
+        ),
+    }
+
+@app.put("/profile/style")
+def update_style_profile(
+    profile: StyleProfile,
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_profile = (
+        db.query(StyleProfileDB)
+        .filter(StyleProfileDB.user_id == current_user.id)
+        .first()
+    )
+
+    if not db_profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Style profile not found",
+        )
+
+    db_profile.preferred_styles = ",".join(profile.preferred_styles)
+    db_profile.preferred_colors = ",".join(profile.preferred_colors)
+    db_profile.avoided_colors = ",".join(profile.avoided_colors)
+
+    db.commit()
+    db.refresh(db_profile)
+
+    return {
+        "preferred_styles": profile.preferred_styles,
+        "preferred_colors": profile.preferred_colors,
+        "avoided_colors": profile.avoided_colors,
+    }
+
+@app.delete("/profile/style", status_code=204)
+def delete_style_profile(
+    current_user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_profile = (
+        db.query(StyleProfileDB)
+        .filter(StyleProfileDB.user_id == current_user.id)
+        .first()
+    )
+
+    if not db_profile:
+        raise HTTPException(
+            status_code=404,
+            detail="Style profile not found",
+        )
+
+    db.delete(db_profile)
+    db.commit()
+
+    return None

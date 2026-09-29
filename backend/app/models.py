@@ -24,3 +24,8 @@ class UserLogin(BaseModel):
 class Outfit(BaseModel):
     name: str
     item_ids: list[str] = []
+
+class StyleProfile(BaseModel):
+    preferred_styles: list[str] = []
+    preferred_colors: list[str] = []
+    avoided_colors: list[str] = []

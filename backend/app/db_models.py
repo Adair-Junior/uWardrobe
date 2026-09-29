@@ -42,3 +42,18 @@ class OutfitItemDB(Base):
         nullable=False,
         index=True,
     )
+
+class StyleProfileDB(Base):
+    __tablename__ = "style_profiles"
+
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(
+        String,
+        ForeignKey("users.id"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    preferred_styles = Column(String, nullable=True)
+    preferred_colors = Column(String, nullable=True)
+    avoided_colors = Column(String, nullable=True)
