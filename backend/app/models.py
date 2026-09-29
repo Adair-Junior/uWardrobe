@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from typing import Literal
 from uuid import UUID, uuid4
 
 class ClothingItem(BaseModel):
@@ -33,6 +34,31 @@ class StyleProfile(BaseModel):
     top_size: str | None = None
     bottom_size: str | None = None
     shoe_size: str | None = None
-    preferred_fit: str | None = None
+    preferred_fit: Literal[
+        "slim",
+        "regular",
+        "relaxed",
+        "oversized",
+    ] | None = None
     preferred_occasions: list[str] = []
-    temperature_preference: str | None = None
+    temperature_preference: Literal[
+        "cold_sensitive",
+        "neutral",
+        "heat_sensitive",
+    ] | None = None
+
+    @field_validator(
+            "preferred_styles",
+            "preferred_colors",
+            "avoided_colors",
+            "preferred_occasions",
+            mode="before",
+        )
+    @classmethod
+    def normalize_preferences(cls, values: list[str]) -> list[str]:
+        cleaned_values = [
+            value.strip() 
+            for value in values
+            if value.strip()
+        ]
+        return list(dict.fromkeys(cleaned_values))

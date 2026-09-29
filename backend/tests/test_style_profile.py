@@ -560,3 +560,183 @@ def test_temperature_preference_is_optional(client, auth_headers):
 
     assert get_response.status_code == 200
     assert get_response.json()["temperature_preference"] is None
+
+def test_reject_invalid_temperature_preference(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "temperature_preference": "pizza",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_reject_invalid_preferred_fit(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "preferred_fit": "banana",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_remove_duplicate_style_preferences(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": [
+                "streetwear",
+                "streetwear",
+                "minimalist",
+            ],
+            "preferred_colors": [
+                "black",
+                "black",
+            ],
+            "avoided_colors": [],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["preferred_styles"] == [
+        "streetwear",
+        "minimalist",
+    ]
+    assert data["preferred_colors"] == ["black"]
+
+def test_remove_duplicates_from_all_preference_lists(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [
+                "orange",
+                "orange",
+                "yellow",
+            ],
+            "preferred_occasions": [
+                "casual",
+                "casual",
+                "work",
+                "work",
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["avoided_colors"] == [
+        "orange",
+        "yellow",
+    ]
+
+    assert data["preferred_occasions"] == [
+        "casual",
+        "work",
+    ]
+
+def test_strip_whitespace_from_preference_lists(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": [
+                " streetwear ",
+                "minimalist ",
+            ],
+            "preferred_colors": [
+                " black ",
+            ],
+            "avoided_colors": [
+                " orange ",
+            ],
+            "preferred_occasions": [
+                " casual ",
+                "work ",
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["preferred_styles"] == [
+        "streetwear",
+        "minimalist",
+    ]
+    assert data["preferred_colors"] == ["black"]
+    assert data["avoided_colors"] == ["orange"]
+    assert data["preferred_occasions"] == [
+        "casual",
+        "work",
+    ]
+
+def test_remove_empty_preference_values(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": [
+                "streetwear",
+                "   ",
+                "",
+                "minimalist",
+            ],
+            "preferred_colors": [
+                "black",
+                " ",
+            ],
+            "avoided_colors": [],
+            "preferred_occasions": [
+                "casual",
+                "",
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["preferred_styles"] == [
+        "streetwear",
+        "minimalist",
+    ]
+    assert data["preferred_colors"] == ["black"]
+    assert data["preferred_occasions"] == ["casual"]
