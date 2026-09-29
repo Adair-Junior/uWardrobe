@@ -8,7 +8,12 @@ from backend.app.weather import (
     get_current_weather,
 )
 
-from backend.app.models import WeatherContext
+from backend.app.models import WeatherContext, OutfitContext
+
+from backend.app.context import (
+    build_outfit_context,
+    build_outfit_context_from_location,
+)
 
 
 def test_weather_context_model():
@@ -216,3 +221,146 @@ def test_get_current_weather(monkeypatch):
     assert weather.humidity_percent == 78.0
     assert weather.wind_speed_kmh == 14.5
     assert weather.weather_condition == "rain"
+
+def test_outfit_context_model():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    assert context.occasion == "casual"
+    assert context.temperature_preference == "cold_sensitive"
+    assert context.weather == weather
+    assert context.weather.feels_like_c == 16.8
+
+def test_outfit_context_rejects_empty_occasion():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    with pytest.raises(ValidationError):
+        OutfitContext(
+            occasion="",
+            temperature_preference="neutral",
+            weather=weather,
+        )
+
+def test_outfit_context_rejects_invalid_temperature_preference():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    with pytest.raises(ValidationError):
+        OutfitContext(
+            occasion="casual",
+            temperature_preference="freezing_person",
+            weather=weather,
+        )
+
+def test_build_outfit_context():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = build_outfit_context(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    assert isinstance(context, OutfitContext)
+    assert context.occasion == "casual"
+    assert context.temperature_preference == "cold_sensitive"
+    assert context.weather == weather
+
+def test_build_outfit_context_from_location(monkeypatch):
+    mock_weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    def mock_get_current_weather(
+        latitude: float,
+        longitude: float,
+    ):
+        assert latitude == -23.5505
+        assert longitude == -46.6333
+        return mock_weather
+
+    monkeypatch.setattr(
+        "backend.app.context.get_current_weather",
+        mock_get_current_weather,
+    )
+
+    context = build_outfit_context_from_location(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+    )
+
+    assert isinstance(context, OutfitContext)
+    assert context.occasion == "casual"
+    assert context.temperature_preference == "cold_sensitive"
+    assert context.weather == mock_weather
+
+def test_build_outfit_context_without_temperature_preference():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=24.0,
+        feels_like_c=24.5,
+        precipitation_mm=0.0,
+        humidity_percent=60.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = build_outfit_context(
+        occasion="casual",
+        temperature_preference=None,
+        weather=weather,
+    )
+
+    assert context.occasion == "casual"
+    assert context.temperature_preference is None
+    assert context.weather == weather

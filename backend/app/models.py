@@ -86,3 +86,12 @@ class WeatherContext(BaseModel):
     humidity_percent: float = Field(ge=0, le=100)
     wind_speed_kmh: float = Field(ge=0)
     weather_condition: str = Field(min_length=1)
+
+class OutfitContext(BaseModel):
+    occasion: str = Field(min_length=1)
+    temperature_preference: Literal[
+        "cold_sensitive",
+        "neutral",
+        "heat_sensitive",
+    ] | None = None
+    weather: WeatherContext
