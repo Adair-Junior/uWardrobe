@@ -35,3 +35,4 @@ class StyleProfile(BaseModel):
     shoe_size: str | None = None
     preferred_fit: str | None = None
     preferred_occasions: list[str] = []
+    temperature_preference: str | None = None

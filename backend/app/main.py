@@ -511,6 +511,7 @@ def create_style_profile(
         shoe_size=profile.shoe_size,
         preferred_fit=profile.preferred_fit,
         preferred_occasions=",".join(profile.preferred_occasions),
+        temperature_preference=profile.temperature_preference,
     )
 
     db.add(db_profile)
@@ -526,6 +527,7 @@ def create_style_profile(
         "shoe_size": profile.shoe_size,
         "preferred_fit": profile.preferred_fit,
         "preferred_occasions": profile.preferred_occasions,
+        "temperature_preference": profile.temperature_preference,
     }
 
 @app.get("/profile/style")
@@ -570,6 +572,7 @@ def get_style_profile(
             if db_profile.preferred_occasions
             else []
         ),
+        "temperature_preference": db_profile.temperature_preference,
     }
 
 @app.put("/profile/style")
@@ -598,6 +601,7 @@ def update_style_profile(
     db_profile.shoe_size = profile.shoe_size
     db_profile.preferred_fit = profile.preferred_fit
     db_profile.preferred_occasions = ",".join(profile.preferred_occasions)
+    db_profile.temperature_preference = profile.temperature_preference
 
     db.commit()
     db.refresh(db_profile)
@@ -611,6 +615,7 @@ def update_style_profile(
         "shoe_size": profile.shoe_size,
         "preferred_fit": profile.preferred_fit,
         "preferred_occasions": profile.preferred_occasions,
+        "temperature_preference": profile.temperature_preference,
     }
 
 @app.delete("/profile/style", status_code=204)

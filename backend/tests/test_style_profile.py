@@ -451,3 +451,112 @@ def test_preferred_occasions_are_optional(client, auth_headers):
 
     assert get_response.status_code == 200
     assert get_response.json()["preferred_occasions"] == []
+
+def test_create_style_profile_with_temperature_preference(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "temperature_preference": "cold_sensitive",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["temperature_preference"] == "cold_sensitive"
+
+def test_get_style_profile_with_temperature_preference(
+    client,
+    auth_headers,
+):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "temperature_preference": "heat_sensitive",
+        },
+    )
+
+    response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["temperature_preference"] == "heat_sensitive"
+
+def test_update_temperature_preference(client, auth_headers):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "temperature_preference": "cold_sensitive",
+        },
+    )
+
+    response = client.put(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "temperature_preference": "heat_sensitive",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["temperature_preference"] == "heat_sensitive"
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert (
+        get_response.json()["temperature_preference"]
+        == "heat_sensitive"
+    )
+
+def test_temperature_preference_is_optional(client, auth_headers):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["temperature_preference"] is None
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["temperature_preference"] is None
