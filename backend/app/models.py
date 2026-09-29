@@ -76,3 +76,13 @@ class StyleProfile(BaseModel):
             )
 
         return self
+
+class WeatherContext(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    temperature_c: float
+    feels_like_c: float
+    precipitation_mm: float = Field(ge=0)
+    humidity_percent: float = Field(ge=0, le=100)
+    wind_speed_kmh: float = Field(ge=0)
+    weather_condition: str = Field(min_length=1)
