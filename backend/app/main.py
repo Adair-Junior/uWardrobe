@@ -510,6 +510,7 @@ def create_style_profile(
         bottom_size=profile.bottom_size,
         shoe_size=profile.shoe_size,
         preferred_fit=profile.preferred_fit,
+        preferred_occasions=",".join(profile.preferred_occasions),
     )
 
     db.add(db_profile)
@@ -524,6 +525,7 @@ def create_style_profile(
         "bottom_size": profile.bottom_size,
         "shoe_size": profile.shoe_size,
         "preferred_fit": profile.preferred_fit,
+        "preferred_occasions": profile.preferred_occasions,
     }
 
 @app.get("/profile/style")
@@ -563,6 +565,11 @@ def get_style_profile(
         "bottom_size": db_profile.bottom_size,
         "shoe_size": db_profile.shoe_size,
         "preferred_fit": db_profile.preferred_fit,
+        "preferred_occasions": (
+            db_profile.preferred_occasions.split(",")
+            if db_profile.preferred_occasions
+            else []
+        ),
     }
 
 @app.put("/profile/style")
@@ -590,6 +597,7 @@ def update_style_profile(
     db_profile.bottom_size = profile.bottom_size
     db_profile.shoe_size = profile.shoe_size
     db_profile.preferred_fit = profile.preferred_fit
+    db_profile.preferred_occasions = ",".join(profile.preferred_occasions)
 
     db.commit()
     db.refresh(db_profile)
@@ -602,6 +610,7 @@ def update_style_profile(
         "bottom_size": profile.bottom_size,
         "shoe_size": profile.shoe_size,
         "preferred_fit": profile.preferred_fit,
+        "preferred_occasions": profile.preferred_occasions,
     }
 
 @app.delete("/profile/style", status_code=204)

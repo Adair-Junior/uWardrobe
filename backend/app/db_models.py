@@ -61,3 +61,4 @@ class StyleProfileDB(Base):
     bottom_size = Column(String, nullable=True)
     shoe_size = Column(String, nullable=True)
     preferred_fit = Column(String, nullable=True)
+    preferred_occasions = Column(String, nullable=True)

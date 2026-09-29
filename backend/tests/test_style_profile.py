@@ -327,3 +327,127 @@ def test_style_profile_size_and_fit_are_optional(client, auth_headers):
     assert saved_data["bottom_size"] is None
     assert saved_data["shoe_size"] is None
     assert saved_data["preferred_fit"] is None
+
+def test_create_style_profile_with_preferred_occasions(client, auth_headers):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "preferred_occasions": [
+                "casual",
+                "work",
+                "date night",
+                "party",
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["preferred_occasions"] == [
+        "casual",
+        "work",
+        "date night",
+        "party",
+    ]
+
+def test_get_style_profile_with_preferred_occasions(client, auth_headers):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "preferred_occasions": [
+                "casual",
+                "work",
+                "formal",
+            ],
+        },
+    )
+
+    response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["preferred_occasions"] == [
+        "casual",
+        "work",
+        "formal",
+    ]
+
+def test_update_preferred_occasions(client, auth_headers):
+    client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "preferred_occasions": ["casual", "work"],
+        },
+    )
+
+    response = client.put(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["streetwear"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+            "preferred_occasions": ["date night", "party", "formal"],
+        },
+    )
+
+    assert response.status_code == 200
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+
+    data = get_response.json()
+
+    assert data["preferred_occasions"] == [
+        "date night",
+        "party",
+        "formal",
+    ]
+
+def test_preferred_occasions_are_optional(client, auth_headers):
+    response = client.post(
+        "/profile/style",
+        headers=auth_headers,
+        json={
+            "preferred_styles": ["minimalist"],
+            "preferred_colors": ["black"],
+            "avoided_colors": [],
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["preferred_occasions"] == []
+
+    get_response = client.get(
+        "/profile/style",
+        headers=auth_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["preferred_occasions"] == []
