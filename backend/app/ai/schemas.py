@@ -10,9 +10,16 @@ class OutfitSuggestion(BaseModel):
     items: list[OutfitItemSuggestion] = Field(min_length=1)
     explanation: str = Field(min_length=1)
 
+class OutfitPersonalization(BaseModel):
+    preferred_styles: list[str] = []
+    preferred_colors: list[str] = []
+    avoided_colors: list[str] = []
+    preferred_fit: str | None = None
+
 class OutfitGenerationRequest(BaseModel):
     wardrobe_item_ids: list[str] = Field(min_length=1)
     context: OutfitContext
+    personalization: OutfitPersonalization | None = None
 
     @field_validator("wardrobe_item_ids")
     @classmethod
