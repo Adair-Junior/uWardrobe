@@ -6,9 +6,29 @@ class OutfitItemSuggestion(BaseModel):
     item_id: str = Field(min_length=1)
     reason: str = Field(min_length=1)
 
+    @field_validator("item_id", "reason")
+    @classmethod
+    def validate_non_empty_text(cls, value: str) -> str:
+        cleaned_value = value.strip()
+
+        if not cleaned_value:
+            raise ValueError("Value must not be empty")
+
+        return cleaned_value
+
 class OutfitSuggestion(BaseModel):
     items: list[OutfitItemSuggestion] = Field(min_length=1)
     explanation: str = Field(min_length=1)
+
+    @field_validator("explanation")
+    @classmethod
+    def validate_explanation(cls, value: str) -> str:
+        cleaned_value = value.strip()
+
+        if not cleaned_value:
+            raise ValueError("Explanation must not be empty")
+
+        return cleaned_value
 
 class OutfitPersonalization(BaseModel):
     preferred_styles: list[str] = []

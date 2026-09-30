@@ -1,5 +1,8 @@
 from backend.app.ai.mock_provider import MockAIProvider
-from backend.app.ai.recommendation import RecommendationEngine
+from backend.app.ai.recommendation import (
+    RecommendationEngine,
+    RecommendationError,
+)
 from backend.app.ai.schemas import (
     OutfitGenerationRequest,
     OutfitItemSuggestion,
@@ -42,6 +45,34 @@ class HallucinatingProvider(MockAIProvider):
             ],
             explanation="A hallucinated outfit.",
         )
+
+class DuplicateItemProvider(MockAIProvider):
+    def generate_outfit(
+        self,
+        prompt: str,
+        wardrobe_item_ids: list[str],
+    ) -> OutfitSuggestion:
+        return OutfitSuggestion(
+            items=[
+                OutfitItemSuggestion(
+                    item_id="shirt-123",
+                    reason="First selection.",
+                ),
+                OutfitItemSuggestion(
+                    item_id="shirt-123",
+                    reason="Duplicate selection.",
+                ),
+            ],
+            explanation="An outfit containing a duplicate item.",
+        )
+
+class FailingProvider(MockAIProvider):
+    def generate_outfit(
+        self,
+        prompt: str,
+        wardrobe_item_ids: list[str],
+    ) -> OutfitSuggestion:
+        raise RuntimeError("AI provider unavailable")
 
 def test_recommendation_engine_generates_outfit():
     weather = WeatherContext(
@@ -248,7 +279,7 @@ def test_recommendation_engine_rejects_unknown_wardrobe_item():
     )
 
     with pytest.raises(
-        ValueError,
+        RecommendationError,
         match="AI suggested unknown wardrobe item: invented-jacket-999",
     ):
         engine.generate(request)
@@ -293,3 +324,244 @@ def test_recommendation_engine_includes_personalization():
     assert "Preferred colors: black, blue." in provider.received_prompt
     assert "Avoided colors: orange." in provider.received_prompt
     assert "Preferred fit: relaxed." in provider.received_prompt
+
+def test_recommendation_engine_rejects_duplicate_wardrobe_item():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=DuplicateItemProvider(),
+    )
+
+    with pytest.raises(
+        RecommendationError,
+        match="AI suggested duplicate wardrobe item: shirt-123",
+    ):
+        engine.generate(request)
+
+def test_recommendation_engine_handles_provider_failure():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+    )
+
+    with pytest.raises(
+        RecommendationError,
+        match="AI provider failed to generate an outfit",
+    ):
+        engine.generate(request)
+
+def test_recommendation_error_preserves_provider_failure():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+    )
+
+    with pytest.raises(RecommendationError) as exc_info:
+        engine.generate(request)
+
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
+    assert str(exc_info.value.__cause__) == "AI provider unavailable"
+
+def test_recommendation_engine_uses_fallback_provider():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+        fallback_provider=MockAIProvider(),
+    )
+
+    suggestion = engine.generate(request)
+
+    assert suggestion.items[0].item_id == "shirt-123"
+    assert suggestion.explanation == (
+        "Mock outfit suggestion for testing."
+    )
+
+def test_recommendation_engine_handles_both_providers_failing():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+        fallback_provider=FailingProvider(),
+    )
+
+    with pytest.raises(
+        RecommendationError,
+        match="AI provider and fallback provider failed",
+    ) as exc_info:
+        engine.generate(request)
+
+    assert isinstance(
+        exc_info.value.__cause__,
+        RuntimeError,
+    )
+
+def test_recommendation_engine_validates_fallback_suggestion():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+        fallback_provider=HallucinatingProvider(),
+    )
+
+    with pytest.raises(
+        RecommendationError,
+        match="AI suggested unknown wardrobe item: invented-jacket-999",
+    ):
+        engine.generate(request)
+
+def test_recommendation_engine_rejects_duplicate_fallback_suggestion():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=["shirt-123", "pants-456"],
+        context=context,
+    )
+
+    engine = RecommendationEngine(
+        provider=FailingProvider(),
+        fallback_provider=DuplicateItemProvider(),
+    )
+
+    with pytest.raises(
+        RecommendationError,
+        match="AI suggested duplicate wardrobe item: shirt-123",
+    ):
+        engine.generate(request)

@@ -206,3 +206,37 @@ def test_outfit_generation_request_normalizes_item_ids():
         "shirt-123",
         "pants-456",
     ]
+
+def test_outfit_item_suggestion_rejects_whitespace_reason():
+    with pytest.raises(ValueError):
+        OutfitItemSuggestion(
+            item_id="shirt-123",
+            reason="   ",
+        )
+
+def test_outfit_suggestion_rejects_whitespace_explanation():
+    with pytest.raises(ValueError):
+        OutfitSuggestion(
+            items=[
+                OutfitItemSuggestion(
+                    item_id="shirt-123",
+                    reason="Good choice for the weather.",
+                )
+            ],
+            explanation="   ",
+        )
+
+def test_outfit_suggestion_normalizes_text_whitespace():
+    suggestion = OutfitSuggestion(
+        items=[
+            OutfitItemSuggestion(
+                item_id="  shirt-123  ",
+                reason="  Works well for the weather.  ",
+            )
+        ],
+        explanation="  A comfortable casual outfit.  ",
+    )
+
+    assert suggestion.items[0].item_id == "shirt-123"
+    assert suggestion.items[0].reason == "Works well for the weather."
+    assert suggestion.explanation == "A comfortable casual outfit."

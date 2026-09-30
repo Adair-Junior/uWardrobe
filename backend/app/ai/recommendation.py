@@ -4,9 +4,17 @@ from backend.app.ai.schemas import (
     OutfitSuggestion,
 )
 
+class RecommendationError(Exception):
+    """Raised when an outfit recommendation cannot be generated safely."""
+
 class RecommendationEngine:
-    def __init__(self, provider: AIProvider):
+    def __init__(
+        self, 
+        provider: AIProvider,
+        fallback_provider: AIProvider | None = None,
+    ):
         self.provider = provider
+        self.fallback_provider = fallback_provider
 
     def build_prompt(
         self,
@@ -68,12 +76,20 @@ class RecommendationEngine:
         wardrobe_item_ids: list[str],
     ) -> OutfitSuggestion:
         allowed_item_ids = set(wardrobe_item_ids)
+        suggested_item_ids = set()
 
         for item in suggestion.items:
             if item.item_id not in allowed_item_ids:
-                raise ValueError(
+                raise RecommendationError(
                     f"AI suggested unknown wardrobe item: {item.item_id}"
                 )
+
+            if item.item_id in suggested_item_ids:
+                raise RecommendationError(
+                    f"AI suggested duplicate wardrobe item: {item.item_id}"
+                )
+
+            suggested_item_ids.add(item.item_id)
 
         return suggestion
 
@@ -83,10 +99,26 @@ class RecommendationEngine:
     ) -> OutfitSuggestion:
         prompt = self.build_prompt(request)
 
-        suggestion = self.provider.generate_outfit(
-            prompt=prompt,
-            wardrobe_item_ids=request.wardrobe_item_ids,
-        )
+        try:
+            suggestion = self.provider.generate_outfit(
+                prompt=prompt,
+                wardrobe_item_ids=request.wardrobe_item_ids,
+            )
+        except Exception as primary_exc:
+            if self.fallback_provider is None:
+                raise RecommendationError(
+                    "AI provider failed to generate an outfit"
+                ) from primary_exc
+
+            try:
+                suggestion = self.fallback_provider.generate_outfit(
+                    prompt=prompt,
+                    wardrobe_item_ids=request.wardrobe_item_ids,
+                )
+            except Exception as fallback_exc:
+                raise RecommendationError(
+                    "AI provider and fallback provider failed"
+                ) from fallback_exc
 
         return self.validate_suggestion(
             suggestion=suggestion,
