@@ -11,6 +11,7 @@ from backend.app.ai.schemas import (
 )
 from backend.app.models import OutfitContext, WeatherContext
 import pytest
+from backend.app.ai.gemini_provider import GeminiProvider
 
 class RecordingProvider(MockAIProvider):
     def __init__(self):
@@ -73,6 +74,21 @@ class FailingProvider(MockAIProvider):
         wardrobe_item_ids: list[str],
     ) -> OutfitSuggestion:
         raise RuntimeError("AI provider unavailable")
+
+class UnavailableGeminiModels:
+    def generate_content(
+        self,
+        *,
+        model,
+        contents,
+        config,
+    ):
+        raise RuntimeError("Gemini temporarily unavailable")
+
+
+class UnavailableGeminiClient:
+    def __init__(self):
+        self.models = UnavailableGeminiModels()
 
 def test_recommendation_engine_generates_outfit():
     weather = WeatherContext(
@@ -565,3 +581,47 @@ def test_recommendation_engine_rejects_duplicate_fallback_suggestion():
         match="AI suggested duplicate wardrobe item: shirt-123",
     ):
         engine.generate(request)
+
+def test_recommendation_engine_falls_back_when_gemini_fails():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=18.5,
+        feels_like_c=16.8,
+        precipitation_mm=0.0,
+        humidity_percent=75.0,
+        wind_speed_kmh=12.0,
+        weather_condition="cloudy",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="cold_sensitive",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+        ],
+        context=context,
+    )
+
+    gemini_provider = GeminiProvider(
+        client=UnavailableGeminiClient(),
+    )
+
+    engine = RecommendationEngine(
+        provider=gemini_provider,
+        fallback_provider=MockAIProvider(),
+    )
+
+    suggestion = engine.generate(request)
+
+    assert isinstance(suggestion, OutfitSuggestion)
+    assert suggestion.items[0].item_id == "shirt-123"
+    assert (
+        suggestion.explanation
+        == "Mock outfit suggestion for testing."
+    )
