@@ -3,10 +3,15 @@ import { StatusBar } from 'expo-status-bar';
 import { Button, StyleSheet, Text, View } from 'react-native';
 
 import { 
+  ClothingItem,
+  createClothingItem,
+  deleteClothingItem,
   getCurrentUser, 
   getHealth,
+  getWardrobe,
   loginUser, 
   registerUser,
+  updateClothingItem,
 } from './api/client';
 
 export default function App() {
@@ -24,6 +29,12 @@ export default function App() {
   const [currentUserStatus, setCurrentUserStatus] = useState(
     'Current user not tested'
   );
+
+  const [wardrobeStatus, setWardrobeStatus] = useState(
+    'Wardrobe not loaded'
+  );
+
+  const [wardrobeItems, setWardrobeItems] = useState<ClothingItem[]>([]);
 
   useEffect(() => {
     getHealth()
@@ -63,7 +74,6 @@ export default function App() {
 
       setAccessToken(data.access_token);
 
-      console.log('Logged in:', data);
       setLoginStatus(`Logged in successfully`);
     } catch (error) {
       console.error('Login failed:', error);
@@ -88,6 +98,100 @@ export default function App() {
     }
   };
 
+  const testWardrobe = async () => {
+    if (!accessToken) {
+      setWardrobeStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const items = await getWardrobe(accessToken);
+
+      setWardrobeItems(items);
+
+      console.log('Wardrobe:', items);
+      setWardrobeStatus(`Wardrobe loaded: ${items.length} item(s)`);
+    } catch (error) {
+      console.error('Wardrobe failed:', error);
+      setWardrobeStatus(`Wardrobe failed: ${String(error)}`);
+    }
+  };
+
+  const testCreateClothingItem = async () => {
+    if (!accessToken) {
+      setWardrobeStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const item = await createClothingItem(accessToken, {
+        name: 'Black T-Shirt',
+        category: 'top',
+        color: 'black',
+        style: 'casual',
+        season: 'all-season',
+      });
+
+      console.log('Created clothing item:', item);
+      setWardrobeStatus(`Created: ${item.name}`);
+    } catch (error) {
+      console.error('Create clothing item failed:', error);
+      setWardrobeStatus(`Create failed: ${String(error)}`);
+    }
+  };
+
+  const handleDeleteClothingItem = async (itemId: string) => {
+    if (!accessToken) {
+      setWardrobeStatus('Please log in first');
+      return;
+    }
+
+    try {
+      await deleteClothingItem(accessToken, itemId);
+
+      setWardrobeItems((currentItems) =>
+        currentItems.filter((item) => item.id !== itemId)
+      );
+
+      setWardrobeStatus('Clothing item deleted');
+    } catch (error) {
+      console.error('Delete clothing item failed:', error);
+      setWardrobeStatus(`Delete failed: ${String(error)}`);
+    }
+  };
+
+  const handleUpdateClothingItem = async (item: ClothingItem) => {
+    if (!accessToken) {
+      setWardrobeStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const updatedItem = await updateClothingItem(
+        accessToken,
+        item.id,
+        {
+          name: `${item.name} Updated`,
+          category: item.category,
+          color: item.color,
+          style: item.style,
+          season: item.season,
+        }
+      );
+
+      setWardrobeItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === updatedItem.id ? updatedItem : currentItem
+        )
+      );
+
+      setWardrobeStatus(`Updated: ${updatedItem.name}`);
+    } catch (error) {
+      console.error('Update clothing item failed:', error);
+      setWardrobeStatus(`Update failed: ${String(error)}`);
+    }
+  };
+
   const testUnauthorizedUser = async () => {
     try {
       await getCurrentUser('invalid-token');
@@ -106,6 +210,26 @@ export default function App() {
       <Text>{registrationStatus}</Text>
       <Text>{loginStatus}</Text>
       <Text>{currentUserStatus}</Text>
+      <Text>{wardrobeStatus}</Text>
+
+      {wardrobeItems.map((item) => (
+        <View key={item.id}>
+          <Text>{item.name}</Text>
+          <Text>
+            {item.category} | {item.color} | {item.style} | {item.season}
+          </Text>
+
+          <Button
+            title="Update"
+            onPress={() => handleUpdateClothingItem(item)}
+          />
+
+          <Button
+            title="Delete"
+            onPress={() => handleDeleteClothingItem(item.id)}
+          />
+        </View>
+      ))}
 
       <Button
         title="Test Registration"
@@ -120,6 +244,16 @@ export default function App() {
       <Button
         title="Test Current User"
         onPress={testCurrentUser}
+      />
+
+      <Button
+        title="Load Wardrobe"
+        onPress={testWardrobe}
+      />
+
+      <Button
+        title="Create Test Item"
+        onPress={testCreateClothingItem}
       />
 
       <Button

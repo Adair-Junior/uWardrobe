@@ -139,7 +139,6 @@ def create_clothing_item(
     db.refresh(db_item)
 
     return db_item 
-    
 
 @app.get("/wardrobe")
 def get_wardrobe(

@@ -29,6 +29,15 @@ export type LoginResponse = {
   token_type: string;
 };
 
+export type ClothingItem = {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  style: string;
+  season: string;
+};
+
 export async function registerUser(
   credentials: AuthCredentials
 ): Promise<UserResponse> {
@@ -80,4 +89,90 @@ export async function getCurrentUser(
   }
 
   return response.json() as Promise<UserResponse>;
+}
+
+export async function getWardrobe(
+  accessToken: string
+): Promise<ClothingItem[]> {
+  const response = await fetch(`${API_BASE_URL}/wardrobe`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<ClothingItem[]>;
+}
+
+export async function createClothingItem(
+  accessToken: string,
+  item: Omit<ClothingItem, 'id'>
+): Promise<ClothingItem> {
+  const response = await fetch(`${API_BASE_URL}/wardrobe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(item),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<ClothingItem>;
+}
+
+export type DeleteClothingItemResponse = {
+  message: string;
+};
+
+export async function deleteClothingItem(
+  accessToken: string,
+  itemId: string
+): Promise<DeleteClothingItemResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/wardrobe/${itemId}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<DeleteClothingItemResponse>;
+}
+
+export async function updateClothingItem(
+  accessToken: string,
+  itemId: string,
+  item: Omit<ClothingItem, 'id'>
+): Promise<ClothingItem> {
+  const response = await fetch(
+    `${API_BASE_URL}/wardrobe/${itemId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(item),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<ClothingItem>;
 }
