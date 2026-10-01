@@ -5,7 +5,10 @@ from backend.app.ai.schemas import (
     OutfitItemSuggestion,
     OutfitSuggestion,
     OutfitGenerationRequest,
+    RecommendationHistory,
 )
+
+from backend.app.models import OutfitContext, WeatherContext
 
 from backend.app.ai.provider import AIProvider
 
@@ -240,3 +243,111 @@ def test_outfit_suggestion_normalizes_text_whitespace():
     assert suggestion.items[0].item_id == "shirt-123"
     assert suggestion.items[0].reason == "Works well for the weather."
     assert suggestion.explanation == "A comfortable casual outfit."
+
+def test_recommendation_history_accepts_recent_items():
+    history = RecommendationHistory(
+        recent_item_ids=[
+            "shirt-123",
+            "pants-456",
+        ]
+    )
+
+    assert history.recent_item_ids == [
+        "shirt-123",
+        "pants-456",
+    ]
+
+def test_recommendation_history_normalizes_recent_items():
+    history = RecommendationHistory(
+        recent_item_ids=[
+            " shirt-123 ",
+            "pants-456",
+            "shirt-123",
+            "   ",
+        ]
+    )
+
+    assert history.recent_item_ids == [
+        "shirt-123",
+        "pants-456",
+    ]
+
+def test_outfit_generation_request_accepts_history():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+        context=context,
+        history=RecommendationHistory(
+            recent_item_ids=[
+                "shirt-123",
+                "pants-456",
+            ]
+        ),
+    )
+
+    assert request.history is not None
+    assert request.history.recent_item_ids == [
+        "shirt-123",
+        "pants-456",
+    ]
+
+def test_recommendation_history_accepts_recent_outfits():
+    history = RecommendationHistory(
+        recent_outfits=[
+            ["shirt-123", "pants-456"],
+            ["jacket-789", "shoes-101"],
+        ]
+    )
+
+    assert history.recent_outfits == [
+        ["shirt-123", "pants-456"],
+        ["jacket-789", "shoes-101"],
+    ]
+
+def test_recommendation_history_normalizes_recent_outfits():
+    history = RecommendationHistory(
+        recent_outfits=[
+            [
+                " shirt-123 ",
+                "pants-456",
+                "shirt-123",
+                "   ",
+            ],
+            [
+                "   ",
+            ],
+            [
+                " jacket-789 ",
+            ],
+        ]
+    )
+
+    assert history.recent_outfits == [
+        [
+            "shirt-123",
+            "pants-456",
+        ],
+        [
+            "jacket-789",
+        ],
+    ]

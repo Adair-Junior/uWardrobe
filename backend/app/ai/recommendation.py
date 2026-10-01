@@ -16,6 +16,39 @@ class RecommendationEngine:
         self.provider = provider
         self.fallback_provider = fallback_provider
 
+    def get_recent_item_ids(
+        self,
+        recent_outfits: list[list[str]],
+        history_limit: int = 15,
+    ) -> list[str]:
+        recent_window = recent_outfits[-history_limit:]
+
+        recent_item_ids = [
+            item_id
+            for outfit in recent_window
+            for item_id in outfit
+        ]
+
+        return list(dict.fromkeys(recent_item_ids))
+
+    def get_preferred_item_ids(
+        self,
+        wardrobe_item_ids: list[str],
+        recent_item_ids: list[str],
+    ) -> list[str]:
+        recent_items = set(recent_item_ids)
+
+        preferred_items = [
+            item_id
+            for item_id in wardrobe_item_ids
+            if item_id not in recent_items
+        ]
+
+        if preferred_items:
+            return preferred_items
+
+        return wardrobe_item_ids
+
     def build_prompt(
         self,
         request: OutfitGenerationRequest,
@@ -99,10 +132,25 @@ class RecommendationEngine:
     ) -> OutfitSuggestion:
         prompt = self.build_prompt(request)
 
+        candidate_item_ids = request.wardrobe_item_ids
+
+        if request.history is not None:
+            recent_item_ids = request.history.recent_item_ids
+
+            if request.history.recent_outfits:
+                recent_item_ids = self.get_recent_item_ids(
+                    recent_outfits=request.history.recent_outfits,
+                )
+
+            candidate_item_ids = self.get_preferred_item_ids(
+                wardrobe_item_ids=request.wardrobe_item_ids,
+                recent_item_ids=recent_item_ids,
+            )
+
         try:
             suggestion = self.provider.generate_outfit(
                 prompt=prompt,
-                wardrobe_item_ids=request.wardrobe_item_ids,
+                wardrobe_item_ids=candidate_item_ids,
             )
         except Exception as primary_exc:
             if self.fallback_provider is None:
@@ -113,7 +161,7 @@ class RecommendationEngine:
             try:
                 suggestion = self.fallback_provider.generate_outfit(
                     prompt=prompt,
-                    wardrobe_item_ids=request.wardrobe_item_ids,
+                    wardrobe_item_ids=candidate_item_ids,
                 )
             except Exception as fallback_exc:
                 raise RecommendationError(

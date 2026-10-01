@@ -8,6 +8,7 @@ from backend.app.ai.schemas import (
     OutfitItemSuggestion,
     OutfitPersonalization,
     OutfitSuggestion,
+    RecommendationHistory,
 )
 from backend.app.models import OutfitContext, WeatherContext
 import pytest
@@ -625,3 +626,321 @@ def test_recommendation_engine_falls_back_when_gemini_fails():
         suggestion.explanation
         == "Mock outfit suggestion for testing."
     )
+
+def test_recommendation_engine_prefers_items_not_used_recently():
+    engine = RecommendationEngine(
+        provider=MockAIProvider(),
+    )
+
+    preferred_items = engine.get_preferred_item_ids(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+            "shoes-101",
+        ],
+        recent_item_ids=[
+            "shirt-123",
+            "pants-456",
+        ],
+    )
+
+    assert preferred_items == [
+        "jacket-789",
+        "shoes-101",
+    ]
+
+def test_recommendation_engine_allows_reuse_when_all_items_are_recent():
+    engine = RecommendationEngine(
+        provider=MockAIProvider(),
+    )
+
+    preferred_items = engine.get_preferred_item_ids(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+        recent_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+    )
+
+    assert preferred_items == [
+        "shirt-123",
+        "pants-456",
+        "jacket-789",
+    ]
+
+def test_recommendation_engine_sends_non_recent_candidates_to_provider():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+        context=context,
+        history=RecommendationHistory(
+            recent_item_ids=[
+                "shirt-123",
+                "pants-456",
+            ]
+        ),
+    )
+
+    provider = RecordingProvider()
+
+    engine = RecommendationEngine(
+        provider=provider,
+    )
+
+    engine.generate(request)
+
+    assert provider.received_wardrobe_item_ids == [
+        "jacket-789",
+    ]
+
+def test_recommendation_engine_sends_full_wardrobe_when_all_items_are_recent():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+        context=context,
+        history=RecommendationHistory(
+            recent_item_ids=[
+                "shirt-123",
+                "pants-456",
+                "jacket-789",
+            ]
+        ),
+    )
+
+    provider = RecordingProvider()
+
+    engine = RecommendationEngine(
+        provider=provider,
+    )
+
+    engine.generate(request)
+
+    assert provider.received_wardrobe_item_ids == [
+        "shirt-123",
+        "pants-456",
+        "jacket-789",
+    ]
+
+class FailingRecordingProvider(RecordingProvider):
+    def generate_outfit(
+        self,
+        prompt: str,
+        wardrobe_item_ids: list[str],
+    ) -> OutfitSuggestion:
+        self.received_prompt = prompt
+        self.received_wardrobe_item_ids = wardrobe_item_ids
+
+        raise RuntimeError("Primary provider unavailable")
+
+def test_recommendation_engine_fallback_receives_non_recent_candidates():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "shirt-123",
+            "pants-456",
+            "jacket-789",
+        ],
+        context=context,
+        history=RecommendationHistory(
+            recent_item_ids=[
+                "shirt-123",
+                "pants-456",
+            ]
+        ),
+    )
+
+    primary_provider = FailingRecordingProvider()
+    fallback_provider = RecordingProvider()
+
+    engine = RecommendationEngine(
+        provider=primary_provider,
+        fallback_provider=fallback_provider,
+    )
+
+    engine.generate(request)
+
+    assert primary_provider.received_wardrobe_item_ids == [
+        "jacket-789",
+    ]
+
+    assert fallback_provider.received_wardrobe_item_ids == [
+        "jacket-789",
+    ]
+
+def test_recommendation_engine_uses_last_15_outfits_for_history():
+    engine = RecommendationEngine(
+        provider=MockAIProvider(),
+    )
+
+    recent_outfits = [
+        [f"item-{index}"]
+        for index in range(1, 21)
+    ]
+
+    recent_item_ids = engine.get_recent_item_ids(
+        recent_outfits=recent_outfits,
+    )
+
+    assert len(recent_item_ids) == 15
+    assert "item-1" not in recent_item_ids
+    assert "item-5" not in recent_item_ids
+    assert "item-6" in recent_item_ids
+    assert "item-20" in recent_item_ids
+
+def test_recommendation_engine_generation_respects_last_15_outfits():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    recent_outfits = [
+        [f"item-{index}"]
+        for index in range(1, 21)
+    ]
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=[
+            "item-5",
+            "item-6",
+            "item-20",
+            "new-item",
+        ],
+        context=context,
+        history=RecommendationHistory(
+            recent_outfits=recent_outfits,
+        ),
+    )
+
+    provider = RecordingProvider()
+
+    engine = RecommendationEngine(
+        provider=provider,
+    )
+
+    engine.generate(request)
+
+    assert provider.received_wardrobe_item_ids == [
+        "item-5",
+        "new-item",
+    ]
+
+def test_recommendation_engine_allows_reuse_when_last_15_outfits_cover_full_wardrobe():
+    weather = WeatherContext(
+        latitude=-23.5505,
+        longitude=-46.6333,
+        temperature_c=22.0,
+        feels_like_c=21.0,
+        precipitation_mm=0.0,
+        humidity_percent=65.0,
+        wind_speed_kmh=8.0,
+        weather_condition="clear",
+    )
+
+    context = OutfitContext(
+        occasion="casual",
+        temperature_preference="neutral",
+        weather=weather,
+    )
+
+    wardrobe_item_ids = [
+        "shirt-123",
+        "pants-456",
+        "jacket-789",
+    ]
+
+    recent_outfits = [
+        [wardrobe_item_ids[index % 3]]
+        for index in range(15)
+    ]
+
+    request = OutfitGenerationRequest(
+        wardrobe_item_ids=wardrobe_item_ids,
+        context=context,
+        history=RecommendationHistory(
+            recent_outfits=recent_outfits,
+        ),
+    )
+
+    provider = RecordingProvider()
+
+    engine = RecommendationEngine(
+        provider=provider,
+    )
+
+    engine.generate(request)
+
+    assert provider.received_wardrobe_item_ids == wardrobe_item_ids
