@@ -24,3 +24,6 @@ web-build/
 Thumbs.db
 
 uwardrobe.db
+
+
+uwardrobe_before_day26_migration.db
