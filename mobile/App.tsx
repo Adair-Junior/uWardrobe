@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { Button, StyleSheet, Text, TextInput, ScrollView, View } from 'react-native';
 
 import { 
   ClothingItem,
   createClothingItem,
+  createStyleProfile,
   deleteClothingItem,
   getCurrentUser, 
   getHealth,
+  getStyleProfile,
+  updateStyleProfile,
   getWardrobe,
   loginUser, 
   registerUser,
+  StyleProfile,
   updateClothingItem,
 } from './api/client';
 
@@ -35,6 +39,31 @@ export default function App() {
   );
 
   const [wardrobeItems, setWardrobeItems] = useState<ClothingItem[]>([]);
+
+  const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
+
+  const [profileStatus, setProfileStatus] = useState(
+    'Profile not loaded'
+  );
+
+  const [preferredStylesInput, setPreferredStylesInput] = useState('');
+
+  const [preferredColorsInput, setPreferredColorsInput] = useState('');
+
+  const [avoidedColorsInput, setAvoidedColorsInput] = useState('');
+
+  const [topSizeInput, setTopSizeInput] = useState('');
+
+  const [bottomSizeInput, setBottomSizeInput] = useState('');
+
+  const [shoeSizeInput, setShoeSizeInput] = useState('');
+
+  const [preferredFitInput, setPreferredFitInput] = useState('');
+
+  const [preferredOccasionsInput, setPreferredOccasionsInput] = useState('');
+
+  const [temperaturePreferenceInput, setTemperaturePreferenceInput] =
+  useState('');
 
   useEffect(() => {
     getHealth()
@@ -114,6 +143,104 @@ export default function App() {
     } catch (error) {
       console.error('Wardrobe failed:', error);
       setWardrobeStatus(`Wardrobe failed: ${String(error)}`);
+    }
+  };
+
+  const testStyleProfile = async () => {
+    if (!accessToken) {
+      setProfileStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const profile = await getStyleProfile(accessToken);
+
+      setStyleProfile(profile);
+
+      setPreferredStylesInput(profile.preferred_styles.join(', '));
+      setPreferredColorsInput(profile.preferred_colors.join(', '));
+      setAvoidedColorsInput(profile.avoided_colors.join(', '));
+      setTopSizeInput(profile.top_size ?? '');
+      setBottomSizeInput(profile.bottom_size ?? '');
+      setShoeSizeInput(profile.shoe_size ?? '');
+      setPreferredFitInput(profile.preferred_fit ?? '');
+      setPreferredOccasionsInput(profile.preferred_occasions.join(', '));
+      setTemperaturePreferenceInput(profile.temperature_preference ?? '');
+
+      console.log('Style profile:', profile);
+      setProfileStatus('Profile loaded successfully');
+    } catch (error) {
+      console.error('Profile load failed:', error);
+      setProfileStatus(`Profile load failed: ${String(error)}`);
+    }
+  };
+
+  const testCreateStyleProfile = async () => {
+    if (!accessToken) {
+      setProfileStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const profile = await createStyleProfile(accessToken, {
+        preferred_styles: ['casual', 'minimalist'],
+        preferred_colors: ['black', 'white'],
+        avoided_colors: ['neon'],
+        top_size: 'M',
+        bottom_size: 'M',
+        shoe_size: '42',
+        preferred_fit: 'regular',
+        preferred_occasions: ['casual', 'work'],
+        temperature_preference: 'neutral',
+      });
+
+      setStyleProfile(profile);
+      console.log('Created style profile:', profile);
+      setProfileStatus('Profile created successfully');
+    } catch (error) {
+      console.error('Profile creation failed:', error);
+      setProfileStatus(`Profile creation failed: ${String(error)}`);
+    }
+  };
+
+  const testUpdateStyleProfile = async () => {
+    if (!accessToken) {
+      setProfileStatus('Please log in first');
+      return;
+    }
+
+    try {
+      const profile = await updateStyleProfile(accessToken, {
+        preferred_styles: preferredStylesInput
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        preferred_colors: preferredColorsInput
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        avoided_colors: avoidedColorsInput
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        top_size: topSizeInput.trim() || null,
+        bottom_size: bottomSizeInput.trim() || null,
+        shoe_size: shoeSizeInput.trim() || null,
+        preferred_fit: preferredFitInput.trim() || null,
+        preferred_occasions: preferredOccasionsInput
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        temperature_preference:
+          temperaturePreferenceInput.trim() || null,
+      });
+
+      setStyleProfile(profile);
+      console.log('Updated style profile:', profile);
+      setProfileStatus('Profile updated successfully');
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      setProfileStatus(`Profile update failed: ${String(error)}`);
     }
   };
 
@@ -203,8 +330,9 @@ export default function App() {
     }
   };
 
+
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text>Welcome to uWardrobe 👕</Text>
       <Text>{backendStatus}</Text>
       <Text>{registrationStatus}</Text>
@@ -230,6 +358,131 @@ export default function App() {
           />
         </View>
       ))}
+
+      <Text>Preferred Styles</Text>
+
+      <TextInput
+        value={preferredStylesInput}
+        onChangeText={setPreferredStylesInput}
+        placeholder="casual, minimalist"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>Preferred Colors</Text>
+
+      <TextInput
+        value={preferredColorsInput}
+        onChangeText={setPreferredColorsInput}
+        placeholder="black, white, blue"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>Avoided Colors</Text>
+
+      <TextInput
+        value={avoidedColorsInput}
+        onChangeText={setAvoidedColorsInput}
+        placeholder="orange, neon"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>Top Size</Text>
+
+      <TextInput
+        value={topSizeInput}
+        onChangeText={setTopSizeInput}
+        placeholder="M"
+        autoCapitalize="characters"
+        style={styles.profileInput}
+      />
+
+      <Text>Bottom Size</Text>
+
+      <TextInput
+        value={bottomSizeInput}
+        onChangeText={setBottomSizeInput}
+        placeholder="M"
+        autoCapitalize="characters"
+        style={styles.profileInput}
+      />
+
+      <Text>Shoe Size</Text>
+
+      <TextInput
+        value={shoeSizeInput}
+        onChangeText={setShoeSizeInput}
+        placeholder="42"
+        keyboardType="default"
+        style={styles.profileInput}
+      />
+
+      <Text>Preferred Fit</Text>
+
+      <TextInput
+        value={preferredFitInput}
+        onChangeText={setPreferredFitInput}
+        placeholder="regular, relaxed, slim"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>Preferred Occasions</Text>
+
+      <TextInput
+        value={preferredOccasionsInput}
+        onChangeText={setPreferredOccasionsInput}
+        placeholder="casual, work, weekend"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>Temperature Preference</Text>
+
+      <TextInput
+        value={temperaturePreferenceInput}
+        onChangeText={setTemperaturePreferenceInput}
+        placeholder="cold_sensitive, neutral, heat_sensitive"
+        autoCapitalize="none"
+        style={styles.profileInput}
+      />
+
+      <Text>{profileStatus}</Text>
+
+      {styleProfile && (
+        <View>
+          <Text>Styles: {styleProfile.preferred_styles.join(', ')}</Text>
+          <Text>Colors: {styleProfile.preferred_colors.join(', ')}</Text>
+          <Text>Avoided colors: {styleProfile.avoided_colors.join(', ')}</Text>
+          <Text>Top size: {styleProfile.top_size || 'Not set'}</Text>
+          <Text>Bottom size: {styleProfile.bottom_size || 'Not set'}</Text>
+          <Text>Shoe size: {styleProfile.shoe_size || 'Not set'}</Text>
+          <Text>Fit: {styleProfile.preferred_fit || 'Not set'}</Text>
+          <Text>
+            Occasions: {styleProfile.preferred_occasions.join(', ')}
+          </Text>
+          <Text>
+            Temperature: {styleProfile.temperature_preference || 'Not set'}
+          </Text>
+        </View>
+      )}
+
+      <Button
+        title="Load Profile"
+        onPress={testStyleProfile}
+      />
+
+      <Button
+        title="Create Profile"
+        onPress={testCreateStyleProfile}
+      />
+
+      <Button
+        title="Update Profile"
+        onPress={testUpdateStyleProfile}
+      />
 
       <Button
         title="Test Registration"
@@ -262,7 +515,7 @@ export default function App() {
       />
 
       <StatusBar style="auto" />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -273,4 +526,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+    profileInput: {
+    borderWidth: 1,
+    padding: 10,
+    width: 250,
+    marginBottom: 10,
+  },
+
 });

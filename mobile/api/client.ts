@@ -176,3 +176,72 @@ export async function updateClothingItem(
 
   return response.json() as Promise<ClothingItem>;
 }
+
+export type StyleProfile = {
+  preferred_styles: string[];
+  preferred_colors: string[];
+  avoided_colors: string[];
+  top_size: string | null;
+  bottom_size: string | null;
+  shoe_size: string | null;
+  preferred_fit: string | null;
+  preferred_occasions: string[];
+  temperature_preference: string | null;
+};
+
+export async function getStyleProfile(
+  accessToken: string
+): Promise<StyleProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/style`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<StyleProfile>;
+}
+
+export async function createStyleProfile(
+  accessToken: string,
+  profile: StyleProfile
+): Promise<StyleProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/style`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(profile),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<StyleProfile>;
+}
+
+export async function updateStyleProfile(
+  accessToken: string,
+  profile: StyleProfile
+): Promise<StyleProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/style`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(profile),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<StyleProfile>;
+}
