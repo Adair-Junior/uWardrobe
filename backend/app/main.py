@@ -6,6 +6,9 @@ from backend.app.database import engine, Base, get_db
 from backend.app import db_models 
 from backend.app.db_models import ClothingItemDB, OutfitDB, OutfitItemDB, StyleProfileDB
 from backend.app.db_models import UserDB
+from backend.app.ai.recommendation import RecommendationEngine
+from backend.app.ai.schemas import OutfitGenerationRequest, OutfitSuggestion
+from backend.app.ai.gemini_provider import GeminiProvider
 from backend.app.security import (
     hash_password, 
     verify_password,
@@ -638,3 +641,19 @@ def delete_style_profile(
     db.commit()
 
     return None
+
+def get_ai_provider():
+    return GeminiProvider()
+
+@app.post("/outfit/generate", response_model=OutfitSuggestion)
+def generate_outfit(
+    request: OutfitGenerationRequest,
+    current_user: UserDB = Depends(get_current_user),
+    ai_provider = Depends(get_ai_provider),
+):
+
+    recommendation_engine = RecommendationEngine(
+        provider=ai_provider,
+    )
+
+    return recommendation_engine.generate(request)

@@ -5,7 +5,10 @@ from backend.app.ai.schemas import (
 )
 from backend.app.ai.schemas import OutfitSuggestion
 import json
+from dotenv import load_dotenv
 from google import genai
+
+load_dotenv()
 
 
 class GeminiProvider(AIProvider):

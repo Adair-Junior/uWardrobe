@@ -12,6 +12,8 @@ import {
   getStyleProfile,
   updateStyleProfile,
   getWardrobe,
+  generateOutfit,
+  OutfitSuggestion,
   loginUser, 
   registerUser,
   StyleProfile,
@@ -64,6 +66,12 @@ export default function App() {
 
   const [temperaturePreferenceInput, setTemperaturePreferenceInput] =
   useState('');
+
+  const [outfitSuggestion, setOutfitSuggestion] =
+    useState<OutfitSuggestion | null>(null);
+
+  const [outfitStatus, setOutfitStatus] =
+    useState('No outfit generated yet.');
 
   useEffect(() => {
     getHealth()
@@ -319,6 +327,46 @@ export default function App() {
     }
   };
 
+  const handleGenerateOutfit = async () => {
+    if (!accessToken) {
+      setOutfitStatus('Please log in first');
+      return;
+    }
+
+    if (wardrobeItems.length === 0) {
+      setOutfitStatus('Add at least one wardrobe item first');
+      return;
+    }
+
+    try {
+      setOutfitStatus('Generating outfit...');
+
+      const suggestion = await generateOutfit(accessToken, {
+        wardrobe_item_ids: wardrobeItems.map((item) => item.id),
+        context: {
+          occasion: 'casual',
+          temperature_preference: 'neutral',
+          weather: {
+            latitude: -23.55,
+            longitude: -46.63,
+            temperature_c: 24,
+            feels_like_c: 24,
+            precipitation_mm: 0,
+            humidity_percent: 60,
+            wind_speed_kmh: 10,
+            weather_condition: 'clear',
+          },
+        },
+      });
+
+      setOutfitSuggestion(suggestion);
+      setOutfitStatus('Outfit generated successfully');
+    } catch (error) {
+      console.error('Generate outfit failed:', error);
+      setOutfitStatus(`Generate outfit failed: ${String(error)}`);
+    }
+  };
+
   const testUnauthorizedUser = async () => {
     try {
       await getCurrentUser('invalid-token');
@@ -339,6 +387,27 @@ export default function App() {
       <Text>{loginStatus}</Text>
       <Text>{currentUserStatus}</Text>
       <Text>{wardrobeStatus}</Text>
+
+      <Text>{outfitStatus}</Text>
+
+      <Button
+        title="Generate Outfit"
+        onPress={handleGenerateOutfit}
+      />
+
+      {outfitSuggestion && (
+        <View>
+          <Text>Generated Outfit</Text>
+          <Text>{outfitSuggestion.explanation}</Text>
+
+          {outfitSuggestion.items.map((item) => (
+            <View key={item.item_id}>
+              <Text>Item ID: {item.item_id}</Text>
+              <Text>Reason: {item.reason}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {wardrobeItems.map((item) => (
         <View key={item.id}>
@@ -521,10 +590,12 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
+    paddingBottom: 20, 
   },
 
     profileInput: {

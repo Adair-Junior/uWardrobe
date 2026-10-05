@@ -189,6 +189,38 @@ export type StyleProfile = {
   temperature_preference: string | null;
 };
 
+export type WeatherContext = {
+  latitude: number;
+  longitude: number;
+  temperature_c: number;
+  feels_like_c: number;
+  precipitation_mm: number;
+  humidity_percent: number;
+  wind_speed_kmh: number;
+  weather_condition: string;
+};
+
+export type OutfitContext = {
+  occasion: string;
+  temperature_preference: string | null;
+  weather: WeatherContext;
+};
+
+export type OutfitGenerationRequest = {
+  wardrobe_item_ids: string[];
+  context: OutfitContext;
+};
+
+export type OutfitItemSuggestion = {
+  item_id: string;
+  reason: string;
+};
+
+export type OutfitSuggestion = {
+  items: OutfitItemSuggestion[];
+  explanation: string;
+};
+
 export async function getStyleProfile(
   accessToken: string
 ): Promise<StyleProfile> {
@@ -244,4 +276,24 @@ export async function updateStyleProfile(
   }
 
   return response.json() as Promise<StyleProfile>;
+}
+
+export async function generateOutfit(
+  accessToken: string,
+  request: OutfitGenerationRequest
+): Promise<OutfitSuggestion> {
+  const response = await fetch(`${API_BASE_URL}/outfit/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json() as Promise<OutfitSuggestion>;
 }
