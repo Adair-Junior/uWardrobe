@@ -6,9 +6,11 @@ from backend.app.database import engine, Base, get_db
 from backend.app import db_models 
 from backend.app.db_models import ClothingItemDB, OutfitDB, OutfitItemDB, StyleProfileDB
 from backend.app.db_models import UserDB
-from backend.app.ai.recommendation import RecommendationEngine
+from backend.app.ai.recommendation import RecommendationEngine, RecommendationError
 from backend.app.ai.schemas import OutfitGenerationRequest, OutfitSuggestion
 from backend.app.ai.gemini_provider import GeminiProvider
+from backend.app.weather import get_current_weather
+from backend.app.models import WeatherContext
 from backend.app.security import (
     hash_password, 
     verify_password,
@@ -16,6 +18,7 @@ from backend.app.security import (
     decode_access_token,
 )
 from uuid import uuid4
+import httpx
 
 Base.metadata.create_all(bind=engine)
 
@@ -57,6 +60,23 @@ app = FastAPI(
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/weather/current", response_model=WeatherContext)
+def current_weather(
+    latitude: float,
+    longitude: float,
+    current_user: UserDB = Depends(get_current_user),
+):
+    try:
+        return get_current_weather(
+            latitude=latitude,
+            longitude=longitude,
+        )
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=502,
+            detail="Weather service is temporarily unavailable",
+        )
 
 @app.post("/user/register", response_model=UserResponse, status_code=201)
 def register_user(
@@ -656,4 +676,10 @@ def generate_outfit(
         provider=ai_provider,
     )
 
-    return recommendation_engine.generate(request)
+    try:
+        return recommendation_engine.generate(request)
+    except RecommendationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Outfit generation is temporarily unavailable. Please try again later.",
+        ) from exc

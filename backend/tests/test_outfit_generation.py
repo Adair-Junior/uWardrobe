@@ -1,6 +1,8 @@
 from backend.app.ai.mock_provider import MockAIProvider
 from backend.app.ai.recommendation import RecommendationEngine
 from backend.app.main import app, get_ai_provider
+from unittest.mock import patch
+from backend.app.ai.recommendation import RecommendationError
 
 def test_generate_outfit_for_authenticated_user(client, auth_headers):
     mock_provider = MockAIProvider()
@@ -73,3 +75,38 @@ def test_generate_outfit_for_authenticated_user(client, auth_headers):
     assert generation_data["explanation"]
 
     app.dependency_overrides.pop(get_ai_provider, None)
+
+def test_outfit_generation_provider_failure(client, auth_headers):
+    with patch(
+        "backend.app.main.RecommendationEngine.generate",
+        side_effect=RecommendationError(
+            "AI provider failed to generate an outfit"
+        ),
+    ):
+        response = client.post(
+            "/outfit/generate",
+            headers=auth_headers,
+            json={
+                "wardrobe_item_ids": ["test-item-123"],
+                "context": {
+                    "occasion": "formal",
+                    "temperature_preference": "cold_sensitive",
+                    "weather": {
+                        "latitude": -23.55,
+                        "longitude": -46.63,
+                        "temperature_c": 20.9,
+                        "feels_like_c": 22.9,
+                        "precipitation_mm": 0.0,
+                        "humidity_percent": 82.0,
+                        "wind_speed_kmh": 6.0,
+                        "weather_condition": "cloudy",
+                    },
+                },
+            },
+        )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Outfit generation is temporarily unavailable. "
+        "Please try again later."
+    )

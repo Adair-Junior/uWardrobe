@@ -13,6 +13,7 @@ import {
   updateStyleProfile,
   getWardrobe,
   generateOutfit,
+  getCurrentWeather,
   OutfitSuggestion,
   loginUser, 
   registerUser,
@@ -72,6 +73,15 @@ export default function App() {
 
   const [outfitStatus, setOutfitStatus] =
     useState('No outfit generated yet.');
+
+  const [weatherStatus, setWeatherStatus] =
+    useState('Weather not loaded yet.');
+
+  const [selectedOccasion, setSelectedOccasion] =
+    useState('casual');
+
+  const [temperaturePreference, setTemperaturePreference] =
+    useState('neutral');
 
   useEffect(() => {
     getHealth()
@@ -327,6 +337,32 @@ export default function App() {
     }
   };
 
+  const handleTestWeather = async () => {
+    if (!accessToken) {
+      setWeatherStatus('Please log in first.');
+      return;
+    }
+
+    try {
+      setWeatherStatus('Loading live weather...');
+
+      const weather = await getCurrentWeather(
+        accessToken,
+        -23.55,
+        -46.63
+      );
+
+      setWeatherStatus(
+        `Temperature: ${weather.temperature_c}°C | ` +
+        `Condition: ${weather.weather_condition} | ` +
+        `Humidity: ${weather.humidity_percent}%`
+      );
+    } catch (error) {
+      console.error('Weather request failed:', error);
+      setWeatherStatus(`Weather failed: ${String(error)}`);
+    }
+  };
+  
   const handleGenerateOutfit = async () => {
     if (!accessToken) {
       setOutfitStatus('Please log in first');
@@ -341,21 +377,18 @@ export default function App() {
     try {
       setOutfitStatus('Generating outfit...');
 
+      const weather = await getCurrentWeather(
+        accessToken,
+        -23.55,
+        -46.63
+      );
+
       const suggestion = await generateOutfit(accessToken, {
         wardrobe_item_ids: wardrobeItems.map((item) => item.id),
         context: {
-          occasion: 'casual',
-          temperature_preference: 'neutral',
-          weather: {
-            latitude: -23.55,
-            longitude: -46.63,
-            temperature_c: 24,
-            feels_like_c: 24,
-            precipitation_mm: 0,
-            humidity_percent: 60,
-            wind_speed_kmh: 10,
-            weather_condition: 'clear',
-          },
+          occasion: selectedOccasion,
+          temperature_preference: temperaturePreference,
+          weather,
         },
       });
 
@@ -363,7 +396,20 @@ export default function App() {
       setOutfitStatus('Outfit generated successfully');
     } catch (error) {
       console.error('Generate outfit failed:', error);
-      setOutfitStatus(`Generate outfit failed: ${String(error)}`);
+
+      const message = String(error);
+
+      if (message.includes('HTTP 503')) {
+        setOutfitStatus(
+          'The AI stylist is temporarily unavailable. Please try again later.'
+        );
+      } else if (message.includes('Weather request failed')) {
+        setOutfitStatus(
+          'Unable to load current weather. Please try again.'
+        );
+      } else {
+        setOutfitStatus(`Generate outfit failed: ${message}`);
+      }
     }
   };
 
@@ -387,6 +433,57 @@ export default function App() {
       <Text>{loginStatus}</Text>
       <Text>{currentUserStatus}</Text>
       <Text>{wardrobeStatus}</Text>
+
+      <Text>{weatherStatus}</Text>
+
+      <Button
+        title="Test Live Weather"
+        onPress={handleTestWeather}
+      />
+      
+      <Text>Select Occasion:</Text>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        <Button
+          title="Casual"
+          onPress={() => setSelectedOccasion('casual')}
+        />
+        <Button
+          title="Work"
+          onPress={() => setSelectedOccasion('work')}
+        />
+        <Button
+          title="Formal"
+          onPress={() => setSelectedOccasion('formal')}
+        />
+        <Button
+          title="Sports"
+          onPress={() => setSelectedOccasion('sports')}
+        />
+      </View>
+
+      <Text>Selected occasion: {selectedOccasion}</Text>
+
+      <Text>Temperature Preference:</Text>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        <Button
+          title="I Feel Cold Easily"
+          onPress={() => setTemperaturePreference('cold_sensitive')}
+        />
+        <Button
+          title="Neutral"
+          onPress={() => setTemperaturePreference('neutral')}
+        />
+        <Button
+          title="I Feel Hot Easily"
+          onPress={() => setTemperaturePreference('heat_sensitive')}
+        />
+      </View>
+
+      <Text>
+        Selected temperature preference: {temperaturePreference}
+      </Text>
 
       <Text>{outfitStatus}</Text>
 

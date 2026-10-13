@@ -292,8 +292,39 @@ export async function generateOutfit(
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP error: ${response.status}`);
+    const errorDetails = await response.text();
+
+    throw new Error(
+      `HTTP ${response.status}: ${errorDetails}`
+    );
   }
 
   return response.json() as Promise<OutfitSuggestion>;
+}
+
+export async function getCurrentWeather(
+  accessToken: string,
+  latitude: number,
+  longitude: number
+): Promise<WeatherContext> {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+  });
+
+  const response = await fetch(
+    `${API_BASE_URL}/weather/current?${params.toString()}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Weather request failed: HTTP ${response.status}`);
+  }
+
+  return response.json() as Promise<WeatherContext>;
 }
