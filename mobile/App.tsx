@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, Button, StyleSheet, Text, TextInput, ScrollView, View } from 'react-native';
 import * as Speech from 'expo-speech';
-import { requestRecordingPermissionsAsync } from 'expo-audio';
+import { 
+  requestRecordingPermissionsAsync,
+  useAudioRecorder,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioPlayer,
+} from 'expo-audio';
 
 import { 
   ClothingItem,
@@ -24,6 +30,9 @@ import {
 } from './api/client';
 
 export default function App() {
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const audioPlayer = useAudioPlayer(null);
+
   const [backendStatus, setBackendStatus] = useState('Connecting to backend...');
 
   const [registrationStatus, setRegistrationStatus] = useState(
@@ -461,6 +470,70 @@ export default function App() {
     }
   };
 
+  const handleStartRecording = async () => {
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert('Microphone Permission', 'Microphone access is required.');
+        return;
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+
+      Alert.alert('Recording Started', 'Your microphone is now recording.');
+    } catch (error) {
+      console.error('Recording error:', error);
+      Alert.alert('Recording Error', 'Unable to start recording.');
+    }
+  };
+
+  const handleStopRecording = async () => {
+    try {
+      await audioRecorder.stop();
+
+      const recordingUri = audioRecorder.uri;
+
+      if (recordingUri) {
+        console.log('Recording saved at:', recordingUri);
+        audioPlayer.replace(recordingUri);
+
+        Alert.alert('Recording Complete', 'Your audio was recorded successfully!');
+      } else {
+        Alert.alert('Recording Error', 'No recording file was found.');
+      }
+    } catch (error) {
+      console.error('Stop recording error:', error);
+      Alert.alert('Recording Error', 'Unable to stop recording.');
+    }
+  };
+
+  const handlePlayRecording = async () => {
+    try {
+      if (!audioPlayer.isLoaded) {
+        Alert.alert('No Recording', 'Please record your voice first.');
+        return;
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+
+      await audioPlayer.seekTo(0);
+      audioPlayer.play();
+    } catch (error) {
+      console.error('Playback error:', error);
+      Alert.alert('Playback Error', 'Unable to play your recording.');
+    }
+  };
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -486,6 +559,21 @@ export default function App() {
       <Button
         title="Test Microphone Permission"
         onPress={handleTestMicrophonePermission}
+      />
+
+      <Button
+        title="Start Recording"
+        onPress={handleStartRecording}
+      />
+
+      <Button
+        title="Stop Recording"
+        onPress={handleStopRecording}
+      />
+
+      <Button
+        title="Play Recording"
+        onPress={handlePlayRecording}
       />
       
       <Text>Select Occasion:</Text>
