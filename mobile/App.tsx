@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Button, StyleSheet, Text, TextInput, ScrollView, View } from 'react-native';
+import { Alert, Button, StyleSheet, Text, TextInput, ScrollView, View } from 'react-native';
+import * as Speech from 'expo-speech';
+import { requestRecordingPermissionsAsync } from 'expo-audio';
 
 import { 
   ClothingItem,
@@ -424,6 +426,41 @@ export default function App() {
     }
   };
 
+  const handleTestVoice = () => {
+    Speech.speak(
+      "Hello! I'm your uWardrobe AI stylist. Let's find the perfect outfit for you!",
+      {
+        language: 'en-US',
+        rate: 0.9,
+        pitch: 1.0,
+      }
+    );
+  };
+
+  const handleTestMicrophonePermission = async () => {
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+
+      if (permission.granted) {
+        Alert.alert(
+          'Microphone Ready',
+          'uWardrobe has permission to use your microphone.'
+        );
+      } else {
+        Alert.alert(
+          'Microphone Permission Denied',
+          'Please enable microphone access in your iPhone settings.'
+        );
+      }
+    } catch (error) {
+      console.error('Microphone permission error:', error);
+      Alert.alert(
+        'Microphone Error',
+        'Unable to request microphone permission.'
+      );
+    }
+  };
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -439,6 +476,16 @@ export default function App() {
       <Button
         title="Test Live Weather"
         onPress={handleTestWeather}
+      />
+
+      <Button
+        title="Test Voice Response"
+        onPress={handleTestVoice}
+      />
+
+      <Button
+        title="Test Microphone Permission"
+        onPress={handleTestMicrophonePermission}
       />
       
       <Text>Select Occasion:</Text>
